@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sahabat Isyarat - WebRTC Room</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #202124;
+            color: white;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .setup-box {
+            background: #3c4043;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        input, button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: none;
+            font-size: 14px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background-color: #1557b0; }
+        
+        .video-grid {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 1000px;
+        }
+        .video-wrapper {
+            position: relative;
+            background: #2f3134;
+            border-radius: 10px;
+            overflow: hidden;
+            width: 45%;
+            min-width: 320px;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+        #localWebcam { transform: scaleX(-1); } /* Efek cermin untuk kamera sendiri */
+        
+        .video-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        #subtitle-area {
+            margin-top: 25px;
+            width: 80%;
+            max-width: 800px;
+            background: rgba(0, 0, 0, 0.85);
+            border-left: 5px solid #fbcc05;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .sub-title { font-size: 14px; color: #aaa; margin: 2px; }
+        .sub-text { font-size: 24px; color: #fbcc05; font-weight: bold; margin: 5px; }
+    </style>
+  <script type="module" crossorigin src="/meet-isyarat/assets/index-CVupTmii.js"></script>
+</head>
+<body>
+    <h1>Sahabat Isyarat</h1>
+    <p>Status AI: <span id="status">Loading MediaPipe...</span></p>
+
+    <!-- Area Koneksi Jaringan -->
+    <div class="setup-box">
+        <div>ID Kamu: <strong id="my-id" style="color: #8ab4f8;">Mendapatkan ID...</strong></div>
+        <input type="text" id="peer-id-input" placeholder="Masukkan ID Teman">
+        <button id="connect-btn">Panggil Teman</button>
+    </div>
+
+    <!-- Grid Video Call -->
+    <div class="video-grid">
+        <div class="video-wrapper">
+            <video id="localWebcam" autoplay playsinline muted></video>
+            <div class="video-label">Kamu (Deteksi Aktif)</div>
+        </div>
+        <div class="video-wrapper">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <div class="video-label">Teman</div>
+        </div>
+    </div>
+
+    <!-- Area Subtitle Real-time -->
+    <div id="subtitle-area">
+        <div class="sub-title">Subtitle Lokal (Gerakanmu): <span id="local-sub" style="color: #fff;">-</span></div>
+        <div class="sub-title">Subtitle Masuk (Gerakan Teman):</div>
+        <div id="remote-sub" class="sub-text">Menunggu isyarat...</div>
+    </div>
+
+</body>
+</html>
