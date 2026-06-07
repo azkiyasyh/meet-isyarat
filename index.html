@@ -115,6 +115,193 @@
         <div class="sub-title">Subtitle Masuk (Gerakan Teman):</div>
         <div id="remote-sub" class="sub-text">Menunggu isyarat...</div>
     </div>
-
+<!-- ========================================================== -->
+    <!-- SUNTIKAN KODE MEDIAPIPE + PEERJS BY GEM UNTUK NONA         -->
+    <!-- ========================================================== -->
+    
+    <!-- 1. Muat Library MediaPipe dan PeerJS secara CDN Global -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm/vision_bundle.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+    <script type="module">
+      // Ambil objek dari global window karena dimuat via CDN script tag
+      const { FilesetResolver, HandLandmarker } = window;
+      const Peer = window.Peer;
+
+      // --- DOM Elements Management ---
+      const DOM = {
+        localVideo: document.getElementById("localWebcam"),
+        remoteVideo: document.getElementById("remoteVideo"),
+        statusTxt: document.getElementById("status"),
+        myIdDisplay: document.getElementById("my-id"),
+        peerIdInput: document.getElementById("peer-id-input"),
+        connectBtn: document.getElementById("connect-btn"),
+        localSubTxt: document.getElementById("local-sub"),
+        remoteSubTxt: document.getElementById("remote-sub")
+      };
+
+      let handLandmarker = undefined;
+      let lastVideoTime = -1;
+      let localStream = null;
+      let currentText = "";
+      let dataConnection = null;
+      let peer = null;
+
+      // --- Initialize MediaPipe Model ---
+      async function initMediaPipe() {
+        if(DOM.statusTxt) DOM.statusTxt.innerText = "Memuat Model AI SIBI...";
+        try {
+          const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
+          );
+          handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+              delegate: "GPU"
+            },
+            runningMode: "VIDEO",
+            numHands: 1
+          });
+          if(DOM.statusTxt) DOM.statusTxt.innerText = "Model AI Siap! Menyalakan Jaringan...";
+          startCameraAndNetwork();
+        } catch (err) {
+          console.error("Gagal memuat MediaPipe:", err);
+          if(DOM.statusTxt) DOM.statusTxt.innerText = "Gagal memuat model AI.";
+        }
+      }
+
+      // --- Camera Setup ---
+      function startCameraAndNetwork() {
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true })
+          .then((stream) => {
+            localStream = stream;
+            if (DOM.localVideo) {
+              DOM.localVideo.srcObject = stream;
+              DOM.localVideo.addEventListener("loadeddata", predictWebcam);
+            }
+            initWebRTC();
+          })
+          .catch((err) => {
+            console.error("Akses kamera gagal:", err);
+            if(DOM.statusTxt) DOM.statusTxt.innerText = "Kamera diblokir/error.";
+          });
+      }
+
+      // --- WebRTC Signaling (PeerJS) ---
+      function initWebRTC() {
+        peer = new Peer(undefined, {
+          host: '0.peerjs.com',
+          port: 443,
+          secure: true,
+          path: '/'
+        });
+
+        peer.on('open', (id) => {
+          if (DOM.myIdDisplay) DOM.myIdDisplay.innerText = id;
+          if(DOM.statusTxt) DOM.statusTxt.innerText = "Siap terhubung!";
+        });
+
+        peer.on('call', (call) => {
+          call.answer(localStream);
+          call.on('stream', (remoteStream) => {
+            if (DOM.remoteVideo) DOM.remoteVideo.srcObject = remoteStream;
+            if(DOM.statusTxt) DOM.statusTxt.innerText = "Panggilan Terhubung!";
+          });
+        });
+
+        peer.on('connection', (conn) => {
+          dataConnection = conn;
+          setupDataChannelEvents();
+        });
+      }
+
+      if (DOM.connectBtn) {
+        DOM.connectBtn.addEventListener('click', () => {
+          const remotePeerId = DOM.peerIdInput?.value.trim();
+          if (!remotePeerId) return alert("Isi ID temanmu dulu, Nona!");
+
+          const call = peer.call(remotePeerId, localStream);
+          call.on('stream', (remoteStream) => {
+            if (DOM.remoteVideo) DOM.remoteVideo.srcObject = remoteStream;
+          });
+
+          dataConnection = peer.connect(remotePeerId);
+          setupDataChannelEvents();
+        });
+      }
+
+      function setupDataChannelEvents() {
+        if (!dataConnection) return;
+        dataConnection.on('data', (data) => {
+          if (DOM.remoteSubTxt) DOM.remoteSubTxt.innerText = data;
+        });
+      }
+
+      // --- AI Core Processing ---
+      async function predictWebcam() {
+        let startTimeMs = performance.now();
+        if (DOM.localVideo && lastVideoTime !== DOM.localVideo.currentTime) {
+          lastVideoTime = DOM.localVideo.currentTime;
+          const results = handLandmarker.detectForVideo(DOM.localVideo, startTimeMs);
+          let detectedSign = "(Mendeteksi...)";
+
+          if (results.landmarks && results.landmarks.length > 0) {
+            const landmarks = results.landmarks[0];
+            const isThumbUp   = landmarks[4].y < landmarks[3].y;
+            const isIndexUp   = landmarks[8].y < landmarks[6].y;
+            const isMiddleUp  = landmarks[12].y < landmarks[10].y;
+            const isRingUp    = landmarks[16].y < landmarks[14].y;
+            const isPinkyUp   = landmarks[20].y < landmarks[18].y;
+            const isIndexDown  = landmarks[8].y > landmarks[5].y;
+            const isMiddleDown = landmarks[12].y > landmarks[9].y;
+            const isRingDown   = landmarks[16].y > landmarks[13].y;
+            const isPinkyDown  = landmarks[20].y > landmarks[17].y;
+            const isIndexHorizontal = Math.abs(landmarks[8].x - landmarks[5].x) > 0.1;
+            const isMiddleHorizontal = Math.abs(landmarks[12].x - landmarks[9].x) > 0.1;
+            const distThumbToIdx   = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
+            const distThumbToMid   = Math.hypot(landmarks[4].x - landmarks[12].x, landmarks[4].y - landmarks[12].y);
+            const distIdxToMid     = Math.hypot(landmarks[8].x - landmarks[12].x, landmarks[8].y - landmarks[12].y);
+            const distThumbToPinky = Math.hypot(landmarks[4].x - landmarks[20].x, landmarks[4].y - landmarks[20].y);
+
+            // Klasifikasi SIBI
+            if (isThumbUp && isIndexUp && isPinkyUp && isMiddleDown && isRingDown && distThumbToIdx > 0.08) {
+              detectedSign = "I LOVE YOU 🤟";
+            } else if (isThumbUp && isIndexUp && isMiddleUp && isRingUp && isPinkyUp && distIdxToMid > 0.05) {
+              detectedSign = "HALO 👋";
+            } else if (isIndexUp && isMiddleUp && isRingUp && isPinkyUp && landmarks[4].y > landmarks[10].y) {
+              detectedSign = "Huruf: B";
+            } else if (isIndexUp && !isMiddleUp && !isRingUp && !isPinkyUp && distThumbToMid < 0.05) {
+              detectedSign = "Huruf: D";
+            } else if (distThumbToIdx < 0.04 && isMiddleUp && isRingUp && isPinkyUp && distThumbToMid > 0.05) {
+              detectedSign = "Huruf: F";
+            } else if (!isIndexUp && !isMiddleUp && !isRingUp && isPinkyUp && Math.abs(landmarks[20].x - landmarks[17].x) < 0.04) {
+              detectedSign = "Huruf: I";
+            } else if (isThumbUp && isIndexUp && isMiddleDown && isRingDown && isPinkyDown && distThumbToIdx > 0.10) {
+              detectedSign = "Huruf: L";
+            } else if (distThumbToIdx < 0.06 && distThumbToMid < 0.06 && distThumbToPinky < 0.07) {
+              detectedSign = "Huruf: O";
+            } else if (isIndexDown && isMiddleDown && isRingDown && isPinkyDown && landmarks[4].y < landmarks[6].y && landmarks[4].x < landmarks[5].x) {
+              detectedSign = "Huruf: A";
+            }
+          } else {
+            detectedSign = "Tidak ada tangan";
+          }
+
+          if (DOM.localSubTxt) DOM.localSubTxt.innerText = detectedSign;
+
+          if (detectedSign !== currentText) {
+            currentText = detectedSign;
+            if (dataConnection && dataConnection.open) {
+              dataConnection.send(currentText);
+            }
+          }
+        }
+        window.requestAnimationFrame(predictWebcam);
+      }
+
+      // Jalankan setelah DOM siap
+      window.addEventListener("DOMContentLoaded", initMediaPipe);
+    </script>
+
 </body>
 </html>
